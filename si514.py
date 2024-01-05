@@ -117,7 +117,7 @@ class Py514(object):
         reg06 = (int(m_frac) >>  8) & 0x00FF
         reg07 = (int(m_frac) >> 16) & 0x00FF
         reg08 = (int(m_int)  >>  0) & 0x0007
-        reg08 = (reg08 << 5) + ((int(m_int) >> 24) & 0x001F)
+        reg08 = (reg08 << 5) + ((int(m_frac) >> 24) & 0x001F)
         reg09 = (int(m_int)  >> 3) & 0x003F
         reg10 = (int(hs_div) >> 0) & 0x00FF
         reg11 = (int(ls_div) >> 0) & 0x0007

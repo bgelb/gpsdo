@@ -150,7 +150,7 @@ void setup() {
   byte_write(si514_dev, SI514_REG_M_FRAC1, 0x15);
   byte_write(si514_dev, SI514_REG_M_FRAC2, 0x2);
   byte_write(si514_dev, SI514_REG_M_FRAC3, 0x4d);
-  byte_write(si514_dev, SI514_REG_M_INT_FRAC, 0x20);
+  byte_write(si514_dev, SI514_REG_M_INT_FRAC, 0x21);
   byte_write(si514_dev, SI514_REG_M_INT, 0x8);
   byte_write(si514_dev, SI514_REG_HS_DIV, 0xd0);
   byte_write(si514_dev, SI514_REG_LS_HS_DIV, 0x0);
