@@ -273,7 +273,7 @@ void loop() {
       small_freq_change(si514_dev, ppb);
       cal_state = S_IDLE;
       cal_pps_count = 0;
-      if(cal_interval < 100) {
+      if(cal_interval < 1000) {
         cal_interval *= 10;
       }
     } else {
