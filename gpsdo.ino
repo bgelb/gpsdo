@@ -266,13 +266,13 @@ void loop() {
         cal_state = S_ADJUST;
       }
     } else if(cal_state == S_ADJUST) {
-      ppb = (10000000 * cal_interval - cal_clock_count) * 100 / cal_interval;
-      Serial.printf("cal_clock_count=%d cal_interval=%d\n", cal_clock_count, cal_interval);
+      ppb = ((int64_t)10000000 * (int64_t)cal_interval - cal_clock_count) * (int64_t)100 / (int64_t)cal_interval;
+      Serial.printf("cal_clock_count = %d cal_interval= %d\n", cal_clock_count, cal_interval);
       Serial.printf("Finished cal cycle interval = %d sec. Error = %d ppb.\n", cal_interval, ppb);
       small_freq_change(si514_dev, ppb);
       cal_state = S_IDLE;
       cal_pps_count = 0;
-      if(cal_interval < 1000) {
+      if(cal_interval < 100) {
         cal_interval *= 10;
       }
     } else {
