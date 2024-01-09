@@ -61,6 +61,63 @@ void byte_write(Adafruit_I2CDevice &dev, uint8_t addr, uint8_t value) {
   reg.write(value);
 }
 
+uint8_t byte_read(Adafruit_I2CDevice &dev, uint8_t addr) {
+  uint8_t value;
+  Adafruit_BusIO_Register reg = Adafruit_BusIO_Register(&si514_dev, addr);
+  reg.read(&value);
+  return value;
+}
+
+void small_freq_change(Adafruit_I2CDevice &si514_dev, int32_t ppb) {
+
+  uint8_t reg05, reg06, reg07, reg08, reg09;
+  uint32_t int_m, frac_m;
+  uint32_t dm;
+
+  reg05 = byte_read(si514_dev, SI514_REG_M_FRAC1);
+  reg06 = byte_read(si514_dev, SI514_REG_M_FRAC2);
+  reg07 = byte_read(si514_dev, SI514_REG_M_FRAC3);
+  reg08 = byte_read(si514_dev, SI514_REG_M_INT_FRAC);
+  reg09 = byte_read(si514_dev, SI514_REG_M_INT);
+
+  frac_m = reg05;
+  frac_m += reg06 << 8;
+  frac_m += reg07 << 16;
+  frac_m += (reg08 & 0x1f)  << 24;
+
+  int_m = reg08 >> 5;
+  int_m += reg09 << 3;
+
+  Serial.printf("int_m: %d frac_m: %d\n", int_m, frac_m);
+  Serial.printf("frac_m: %x\n", frac_m);
+  Serial.printf("%x %x %x %x %x\n", reg09, reg08, reg07, reg06, reg05);
+
+  dm = frac_m * (int64_t)ppb / (int64_t)1000000000;
+  dm += ((int64_t)int_m << 29) * (int64_t)ppb / (int64_t)1000000000;
+
+  Serial.printf("dm: %d\n", dm);
+ 
+  frac_m = frac_m + (dm & 0x1fffffff);
+  int_m = int_m + (dm >> 29);
+
+  reg05 = frac_m & 0xff;
+  reg06 = (frac_m >> 8) & 0xff;
+  reg07 = (frac_m >> 16) & 0xff;
+  reg08 = (frac_m >> 24) & 0x1f | ((int_m & 0x07) << 5);
+  reg09 = (int_m >> 3);
+
+  Serial.printf("int_m: %d frac_m: %d\n", int_m, frac_m);
+  Serial.printf("%x\n", frac_m);
+  Serial.printf("%x %x %x %x %x\n", reg09, reg08, reg07, reg06, reg05);
+
+  byte_write(si514_dev, SI514_REG_M_FRAC1, reg05);
+  byte_write(si514_dev, SI514_REG_M_FRAC2, reg06);
+  byte_write(si514_dev, SI514_REG_M_FRAC3, reg07);
+  byte_write(si514_dev, SI514_REG_M_INT_FRAC, reg08);
+  byte_write(si514_dev, SI514_REG_M_INT, reg09);
+
+}
+
 void calibrate_vcxo(Adafruit_I2CDevice &dev) {
   Adafruit_BusIO_Register reg = Adafruit_BusIO_Register(&si514_dev, SI514_REG_CONTROL);
   uint8_t val;
@@ -188,7 +245,7 @@ void setup() {
 }
 
 void loop() {
-
+  int32_t ppb;
   if (cnt > last) {
     last=cnt;
     Serial.printf("saw PPS! cnt=%d tick=%d ext_tick=%d last_full_tick=%d new_full_tick=%d dt=%d\n", cnt, tick, ext_tick, last_full_tick, new_full_tick, new_full_tick-last_full_tick);
@@ -209,8 +266,10 @@ void loop() {
         cal_state = S_ADJUST;
       }
     } else if(cal_state == S_ADJUST) {
-      int32_t ppb = (10000000 * cal_interval - cal_clock_count) * 100 / cal_interval;
+      ppb = (10000000 * cal_interval - cal_clock_count) * 100 / cal_interval;
+      Serial.printf("cal_clock_count=%d cal_interval=%d\n", cal_clock_count, cal_interval);
       Serial.printf("Finished cal cycle interval = %d sec. Error = %d ppb.\n", cal_interval, ppb);
+      small_freq_change(si514_dev, ppb);
       cal_state = S_IDLE;
       cal_pps_count = 0;
       if(cal_interval < 1000) {
@@ -221,6 +280,7 @@ void loop() {
       Serial.println("State machine reached invalid state, resetting!");
       delay(1000);
       cal_state = S_IDLE;
+      cal_pps_count = 0;
     }
   }
   delay(100);
