@@ -30,6 +30,17 @@ int16_t tick;
 uint32_t ext_tick;
 uint32_t new_full_tick, last_full_tick;
 
+enum cal_state_t {
+  S_IDLE,
+  S_COUNT,
+  S_ADJUST
+};
+
+cal_state_t cal_state;
+uint32_t cal_interval;
+uint32_t cal_pps_count;
+uint64_t cal_clock_count;
+
 void IRAM_ATTR pcnt_isr(void *arg) {
     uint32_t intr_status = PCNT.int_st.val;
     if(intr_status & 0x1) {
@@ -169,12 +180,48 @@ void setup() {
   pinMode(1, INPUT);
   attachInterrupt(1, isr, RISING);
   pcnt_init_channel (PCNT_UNIT_0, 14, PCNT_PIN_NOT_USED, PCNT_CHANNEL_0, TICK_ROLLOVER_LIMIT);
+
+  // init state machine
+  cal_interval = 10;
+  cal_pps_count = 0;
+  cal_state = S_IDLE;
 }
 
 void loop() {
+
   if (cnt > last) {
     last=cnt;
     Serial.printf("saw PPS! cnt=%d tick=%d ext_tick=%d last_full_tick=%d new_full_tick=%d dt=%d\n", cnt, tick, ext_tick, last_full_tick, new_full_tick, new_full_tick-last_full_tick);
+
+    // State machine
+    if(cal_state == S_IDLE) {
+      cal_pps_count += 1;
+      if (cal_pps_count > 10) {
+        Serial.printf("Starting cal cycle interval = %d sec.\n", cal_interval);
+        cal_state = S_COUNT;
+        cal_pps_count = 0;
+        cal_clock_count = 0;
+      }
+    } else if(cal_state == S_COUNT) {
+      cal_pps_count += 1;
+      cal_clock_count += (new_full_tick-last_full_tick);
+      if(cal_pps_count == cal_interval) {
+        cal_state = S_ADJUST;
+      }
+    } else if(cal_state == S_ADJUST) {
+      int32_t ppb = (10000000 * cal_interval - cal_clock_count) * 100 / cal_interval;
+      Serial.printf("Finished cal cycle interval = %d sec. Error = %d ppb.\n", cal_interval, ppb);
+      cal_state = S_IDLE;
+      cal_pps_count = 0;
+      if(cal_interval < 1000) {
+        cal_interval *= 10;
+      }
+    } else {
+      // should be unreachable
+      Serial.println("State machine reached invalid state, resetting!");
+      delay(1000);
+      cal_state = S_IDLE;
+    }
   }
   delay(100);
 }
