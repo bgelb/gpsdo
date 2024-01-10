@@ -1,7 +1,7 @@
 #include <Wire.h>
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_BusIO_Register.h>
-#include <SparkFun_u-blox_GNSS_v3.h>
+#include <SparkFun_u-blox_GNSS_Arduino_Library.h>
 #include "driver/pcnt.h"
 #include "soc/pcnt_struct.h"
 
@@ -28,7 +28,7 @@
 #define GPS_SERIAL Serial1
 
 Adafruit_I2CDevice si514_dev = Adafruit_I2CDevice(SI514_ADDR);
-SFE_UBLOX_GNSS_SERIAL gps;
+SFE_UBLOX_GNSS gps;
 
 uint32_t cnt, last;
 int16_t tick;
@@ -234,12 +234,13 @@ void setup() {
 
   // set up GPS comms
   GPS_SERIAL.begin(9600);
-  //while (gps.begin(GPS_SERIAL) == false) //Connect to the u-blox module using mySerial (defined above)
-  //{
-  //  Serial.println(F("u-blox GNSS not detected. Retrying..."));
-  //  delay (1000);
-  //}
-  //gps.setUART1Output(COM_TYPE_UBX); //Set the UART1 port to output UBX only (turn off NMEA noise)
+  while (gps.begin(GPS_SERIAL) == false) //Connect to the u-blox module using mySerial (defined above)
+  {
+    Serial.println(F("u-blox GNSS not detected. Retrying..."));
+    delay (1000);
+  }
+  gps.setUART1Output(COM_TYPE_UBX); //Set the UART1 port to output UBX only (turn off NMEA noise)
+  gps.setI2COutput(COM_TYPE_UBX); //Set the UART1 port to output UBX only (turn off NMEA noise)
 
   // set up PPS
   cnt=0;
