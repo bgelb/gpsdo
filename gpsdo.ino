@@ -1,6 +1,7 @@
 #include <Wire.h>
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_BusIO_Register.h>
+#include <SparkFun_u-blox_GNSS_v3.h>
 #include "driver/pcnt.h"
 #include "soc/pcnt_struct.h"
 
@@ -24,7 +25,11 @@
 
 #define TICK_ROLLOVER_LIMIT 10000
 
+#define GPS_SERIAL Serial1
+
 Adafruit_I2CDevice si514_dev = Adafruit_I2CDevice(SI514_ADDR);
+SFE_UBLOX_GNSS_SERIAL gps;
+
 uint32_t cnt, last;
 int16_t tick;
 uint32_t ext_tick;
@@ -227,6 +232,15 @@ void setup() {
   calibrate_vcxo(si514_dev);
   byte_write(si514_dev, SI514_REG_CONTROL, SI514_OUTPUT_ENABLE);
 
+  // set up GPS comms
+  GPS_SERIAL.begin(9600);
+  //while (gps.begin(GPS_SERIAL) == false) //Connect to the u-blox module using mySerial (defined above)
+  //{
+  //  Serial.println(F("u-blox GNSS not detected. Retrying..."));
+  //  delay (1000);
+  //}
+  //gps.setUART1Output(COM_TYPE_UBX); //Set the UART1 port to output UBX only (turn off NMEA noise)
+
   // set up PPS
   cnt=0;
   last=0;
@@ -286,5 +300,26 @@ void loop() {
       cal_pps_count = 0;
     }
   }
-  delay(100);
+  //if(GPS_SERIAL.available()) {
+  //  Serial.write(GPS_SERIAL.read());
+  //}
+  //if (gps.getPVT() == true)
+  //{
+  //  int32_t latitude = gps.getLatitude();
+  //  Serial.print(F("Lat: "));
+  //  Serial.print(latitude);
+
+  //  int32_t longitude = gps.getLongitude();
+  //  Serial.print(F(" Long: "));
+  //  Serial.print(longitude);
+  //  Serial.print(F(" (degrees * 10^-7)"));
+
+  //  int32_t altitude = gps.getAltitudeMSL(); // Altitude above Mean Sea Level
+  //  Serial.print(F(" Alt: "));
+  //  Serial.print(altitude);
+  //  Serial.print(F(" (mm)"));
+
+  //  Serial.println();
+  //}
+  delay(1);
 }
