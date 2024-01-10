@@ -248,14 +248,14 @@ void loop() {
   int32_t ppb;
   if (cnt > last) {
     last=cnt;
-    Serial.printf("saw PPS! cnt=%d tick=%d ext_tick=%d last_full_tick=%d new_full_tick=%d dt=%d\n", cnt, tick, ext_tick, last_full_tick, new_full_tick, new_full_tick-last_full_tick);
+    //Serial.printf("saw PPS! cnt=%d tick=%d ext_tick=%d last_full_tick=%d new_full_tick=%d dt=%d\n", cnt, tick, ext_tick, last_full_tick, new_full_tick, new_full_tick-last_full_tick);
 
     // State machine
     if(cal_state == S_IDLE) {
       Serial.printf("saw PPS! cnt=%d tick=%d ext_tick=%d last_full_tick=%d new_full_tick=%d dt=%d\n", cnt, tick, ext_tick, last_full_tick, new_full_tick, new_full_tick-last_full_tick);
       cal_pps_count += 1;
       if (cal_pps_count > 10) {
-        Serial.printf("Starting cal cycle interval = %d sec.\n", cal_interval);
+        Serial.printf("Running cal cycle interval = %d sec.", cal_interval);
         cal_state = S_COUNT;
         cal_pps_count = 0;
         cal_clock_count = 0;
@@ -263,17 +263,19 @@ void loop() {
     } else if(cal_state == S_COUNT) {
       cal_pps_count += 1;
       cal_clock_count += (new_full_tick-last_full_tick);
+      Serial.printf(".");
       if(cal_pps_count == cal_interval) {
+        Serial.printf("\n");
         cal_state = S_ADJUST;
       }
     } else if(cal_state == S_ADJUST) {
       ppb = (int32_t)(((int64_t)10000000 * (int64_t)cal_interval - (int64_t)cal_clock_count) * (int64_t)100 / (int64_t)cal_interval);
-      Serial.printf("Finished cal cycle interval = %d sec. Count = %d. Error = %d ppb.\n", cal_interval, cal_clock_count, ppb);
+      Serial.printf("Finished cal cycle interval = %d sec. Error = %d ppb.\n", cal_interval, ppb);
       Serial.printf("ppb: %x\n", ppb);
       small_freq_change(si514_dev, ppb);
       cal_state = S_IDLE;
       cal_pps_count = 0;
-      if(cal_interval < 100) {
+      if(cal_interval < 1000) {
         cal_interval *= 10;
       }
     } else {
