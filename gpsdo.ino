@@ -260,14 +260,18 @@ void setup() {
 }
 
 void loop() {
-  int32_t ppb;
+  int32_t ppb, qerr;
   if (cnt > last) {
     last=cnt;
     //Serial.printf("saw PPS! cnt=%d tick=%d ext_tick=%d last_full_tick=%d new_full_tick=%d dt=%d\n", cnt, tick, ext_tick, last_full_tick, new_full_tick, new_full_tick-last_full_tick);
 
+    if (gps.getTIMTP() == true)
+    {
+      qerr = gps.getTIMTPqErr();
+    }
     // State machine
     if(cal_state == S_IDLE) {
-      Serial.printf("saw PPS! cnt=%d tick=%d ext_tick=%d last_full_tick=%d new_full_tick=%d dt=%d\n", cnt, tick, ext_tick, last_full_tick, new_full_tick, new_full_tick-last_full_tick);
+      Serial.printf("saw PPS! cnt=%d tick=%d ext_tick=%d last_full_tick=%d new_full_tick=%d dt=%d qerr=%d\n", cnt, tick, ext_tick, last_full_tick, new_full_tick, new_full_tick-last_full_tick, qerr);
       cal_pps_count += 1;
       if (cal_pps_count > 10) {
         Serial.printf("Running cal cycle interval = %d sec.", cal_interval);
@@ -301,9 +305,6 @@ void loop() {
       cal_pps_count = 0;
     }
   }
-  //if(GPS_SERIAL.available()) {
-  //  Serial.write(GPS_SERIAL.read());
-  //}
   //if (gps.getPVT() == true)
   //{
   //  int32_t latitude = gps.getLatitude();
@@ -320,6 +321,19 @@ void loop() {
   //  Serial.print(altitude);
   //  Serial.print(F(" (mm)"));
 
+  //  Serial.println();
+  //}
+  //if (gps.getTIMTP() == true)
+  //{
+  //  uint32_t tow_ms = gps.getTIMTPtowMS();
+  //  Serial.print(F("towMS: "));
+  //  Serial.print(tow_ms);
+  //  uint32_t tow_sub_ms = gps.getTIMTPtowSubMS();
+  //  Serial.print(F(" towSubMS: "));
+  //  Serial.print(tow_sub_ms);
+  //  int32_t qerr = gps.getTIMTPqErr();
+  //  Serial.print(F(" qErr: "));
+  //  Serial.print(qerr);
   //  Serial.println();
   //}
   delay(1);
