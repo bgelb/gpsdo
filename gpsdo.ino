@@ -34,6 +34,7 @@ uint32_t cnt, last;
 int16_t tick;
 uint32_t ext_tick;
 uint32_t new_full_tick, last_full_tick;
+int32_t qerr, qerr_next;
 
 enum cal_state_t {
   S_IDLE,
@@ -59,6 +60,7 @@ void IRAM_ATTR isr() {
   cnt++;
   last_full_tick = new_full_tick;
   new_full_tick = tick + ext_tick;
+  qerr = qerr_next;
 }
 
 void byte_write(Adafruit_I2CDevice &dev, uint8_t addr, uint8_t value) {
@@ -185,6 +187,10 @@ void pcnt_init_channel (
     pcnt_counter_resume(pcnt_unit);
 }
 
+void TIMTPcallback(UBX_TIM_TP_data_t *pkt) {
+  qerr_next = pkt->qErr;
+}
+
 void setup() {
   delay(500);
   Serial.begin(115200);
@@ -241,6 +247,9 @@ void setup() {
   }
   gps.setUART1Output(COM_TYPE_UBX); //Set the UART1 port to output UBX only (turn off NMEA noise)
   gps.setI2COutput(COM_TYPE_UBX); //Set the UART1 port to output UBX only (turn off NMEA noise)
+  qerr = 0;
+  gps.setNavigationFrequency(1);
+  gps.setAutoTIMTPcallbackPtr(&TIMTPcallback);
 
   // set up PPS
   cnt=0;
@@ -260,15 +269,14 @@ void setup() {
 }
 
 void loop() {
-  int32_t ppb, qerr;
+  int32_t ppb, ppb_adj;
+  gps.checkUblox();
+  gps.checkCallbacks();
+
   if (cnt > last) {
     last=cnt;
     //Serial.printf("saw PPS! cnt=%d tick=%d ext_tick=%d last_full_tick=%d new_full_tick=%d dt=%d\n", cnt, tick, ext_tick, last_full_tick, new_full_tick, new_full_tick-last_full_tick);
 
-    if (gps.getTIMTP() == true)
-    {
-      qerr = gps.getTIMTPqErr();
-    }
     // State machine
     if(cal_state == S_IDLE) {
       Serial.printf("saw PPS! cnt=%d tick=%d ext_tick=%d last_full_tick=%d new_full_tick=%d dt=%d qerr=%d\n", cnt, tick, ext_tick, last_full_tick, new_full_tick, new_full_tick-last_full_tick, qerr);
@@ -290,13 +298,23 @@ void loop() {
     } else if(cal_state == S_ADJUST) {
       ppb = (int32_t)(((int64_t)10000000 * (int64_t)cal_interval - (int64_t)cal_clock_count) * (int64_t)100 / (int64_t)cal_interval);
       Serial.printf("Finished cal cycle interval = %d sec. Error = %d ppb.\n", cal_interval, ppb);
-      Serial.printf("ppb: %x\n", ppb);
-      small_freq_change(si514_dev, ppb);
+      if(cal_interval > 10) {
+        ppb_adj = ppb * 500 / 1000; // P loop gain
+      } else {
+        ppb_adj = ppb;
+      }
+      small_freq_change(si514_dev, ppb_adj);
       cal_state = S_IDLE;
       cal_pps_count = 0;
-      if(cal_interval < 1000) {
-        cal_interval *= 10;
+      if(cal_interval == 10 || ppb > 10) {
+        cal_interval = 100;
       }
+      //else if(cal_interval == 100 && ppb == 0) {
+      //  cal_interval = 200;
+      //}
+      //} else if(cal_interval == 200 && ppb == 0) {
+      //  cal_interval = 400;
+      //}
     } else {
       // should be unreachable
       Serial.println("State machine reached invalid state, resetting!");
